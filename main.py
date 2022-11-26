@@ -91,7 +91,11 @@ class HabrResumeParserFromCsvToFiles:
         (url to resume, name and surname, page html)
         """
         chrome_options = Options()
-        chrome_options.add_argument("--headless")
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--start-maximized')
 
         driver = webdriver.Chrome(options=chrome_options)
         driver.get(url)
@@ -111,7 +115,7 @@ class HabrResumeParserFromCsvToFiles:
 if __name__ == "__main__":
     start = time.monotonic()
     parser = HabrResumeParserFromCsvToFiles("habr1.csv")
-    threads_amount = 1
+    threads_amount = 10
 
     for _ in range(threads_amount):
         thread_to_add = Thread(target=parser.start_parsing)
@@ -123,4 +127,3 @@ if __name__ == "__main__":
             t.join()
 
     print((time.monotonic() - start) / 30)
-
