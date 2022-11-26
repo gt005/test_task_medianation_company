@@ -26,11 +26,14 @@ class HabrResumeParserFromCsvToFiles:
         self.__list_of_unparsed_urls = []  # Saving urls with parsing error
 
         # Save urls to save in file in the end or when error had rose to avoid
-        # re-parsing after errors
+        # re-parsing after errors. I use set and file together, because
+        # checking url in file is O(n), in set O(1) and less number of syscalls
         self.__set_of_success_urls = set()
-        if os.path.isfile(".success_urls"):
-            with open(".success_urls", "rt") as file:
-                self.__set_of_success_urls = set(file.readlines())
+        if os.path.isfile("resumes/.success_urls"):
+            with open("resumes/.success_urls", "rt") as file:
+                for url in file:
+                    self.__set_of_success_urls.add(url.strip())
+        print(self.__set_of_success_urls)
 
         try:
             self.__opened_csv_file = open(csv_file_path, "rt")
@@ -38,15 +41,33 @@ class HabrResumeParserFromCsvToFiles:
             print("Path to csv file is incorrect or file doesn't exist")
             raise
 
-    def __exit__(self):
-        with open(".success_urls", "at") as file:
-            for url in self.__set_of_success_urls:
-                file.write(url + "\n")
+        # Save urls to save in file in the end or when error had rose to avoid
+        # re-parsing after errors
+        self.__opened_success_urls_file = open(
+            "resumes/.success_urls", "a+"
+        )
 
+    def __exit__(self):
         self.__opened_csv_file.close()
+
+    def __check_url_in_success_urls_file(self, url: str) -> bool:
+        """
+        Checking, was url parsed before.
+        :return: True if url was parsed, False else
+        """
+        return url in self.__set_of_success_urls
 
     def get_links_with_errors_after_parsing(self):
         return self.__list_of_unparsed_urls
+
+    def __add_url_to_success_urls_file(self, url: str) -> None:
+        """
+        Writing new url into file resumes/.success_urls
+        """
+        self.__threading_lock.acquire()
+        self.__set_of_success_urls.add(url.strip() + "\n")
+        self.__opened_success_urls_file.write(url.strip() + "\n")
+        self.__threading_lock.release()
 
     def __get_next_url_from_csv_file(self) -> str:
         """
@@ -68,7 +89,8 @@ class HabrResumeParserFromCsvToFiles:
         """
         url_to_parse = self.__get_next_url_from_csv_file()
         while url_to_parse is not None:
-            if url_to_parse in self.__set_of_success_urls:
+            if self.__check_url_in_success_urls_file(url_to_parse):
+                url_to_parse = self.__get_next_url_from_csv_file()
                 continue
 
             print(f"started parsing {url_to_parse}\n")
@@ -80,11 +102,13 @@ class HabrResumeParserFromCsvToFiles:
             # if rose parsing error
             if parsed_information is None:
                 self.__list_of_unparsed_urls.append(url_to_parse)
+                url_to_parse = self.__get_next_url_from_csv_file()
                 continue
 
             self.__save_page_html_into_file(parsed_information)
             print(f"Saved to file {parsed_information[1]}")
-            self.__set_of_success_urls.add(url_to_parse)
+
+            self.__add_url_to_success_urls_file(url_to_parse)
             url_to_parse = self.__get_next_url_from_csv_file()
 
     def __save_page_html_into_file(
@@ -144,7 +168,7 @@ if __name__ == "__main__":
     parser = HabrResumeParserFromCsvToFiles("habr.csv")
 
     # so many threads, because idle for a long time
-    threads_amount = 20
+    threads_amount = 25
 
     for _ in range(threads_amount):
         thread_to_add = Thread(target=parser.start_parsing)
