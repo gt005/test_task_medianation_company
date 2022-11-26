@@ -9,6 +9,5 @@ test_tast_medianation_container:
 chrome_driver_to_test:
 	docker run -d -p 4444:4444 selenium/standalone-chrome
 
-stop:
-	docker stop test_tast_medianation_container
+clear:
 	docker rmi test_tast_medianation_image

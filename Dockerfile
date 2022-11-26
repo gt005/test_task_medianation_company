@@ -4,7 +4,7 @@ WORKDIR /src
 
 COPY requirements.txt /src
 COPY main.py /src
-COPY habr1.csv /src
+COPY habr.csv /src
 
 RUN pip install -r requirements.txt
 
